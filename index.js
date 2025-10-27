@@ -1,19 +1,19 @@
-
 // index.js
 const makeWASocket = require("@whiskeysockets/baileys").default;
 const { useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
 const P = require("pino");
-const qrcode = require("qrcode-terminal");
 const fs = require("fs");
 const path = require("path");
 
 async function startBot() {
+    // pasta de autenticação
     const authFolder = path.join(__dirname, "auth");
     if (!fs.existsSync(authFolder)) fs.mkdirSync(authFolder);
 
     const { state, saveCreds } = await useMultiFileAuthState(authFolder);
     const { version } = await fetchLatestBaileysVersion();
 
+    // Criando socket
     const sock = makeWASocket({
         logger: P({ level: "silent" }),
         auth: state,
@@ -22,17 +22,27 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    sock.ev.on("connection.update", (update) => {
+    // Evento de conexão
+    sock.ev.on("connection.update", async (update) => {
         const { connection, qr } = update;
+
         if (qr) {
-            qrcode.generate(qr, { small: true });
-            console.log("📲 Escaneie este QR code com o WhatsApp");
+            // salva QR como texto
+            const qrPath = path.join(__dirname, "qr.txt");
+            fs.writeFileSync(qrPath, qr, "utf-8");
+
+            // lê o QR do arquivo e mostra no console
+            const qrText = fs.readFileSync(qrPath, "utf-8");
+            console.log("📲 Novo QR gerado! Escaneie este código com o WhatsApp:\n");
+            console.log(qrText); // mostra a string no console
         }
+
         if (connection === "open") {
             console.log("✅ Bot conectado ao WhatsApp!");
         }
     });
 
+    // --- Lógica original do bot ---
     const atendenteNumber = "553496359355@s.whatsapp.net";
     const blockedUsers = new Map();
     const userToAtendente = new Map();
@@ -111,7 +121,7 @@ Digite o número da opção desejada:
                 await simulateEdit(sender, [
                     "> Aguarde um momento...",
                     "> Buscando no servidor...",
-                    `📌 *Informações sobre a Bigo Live:*\n\nNo Bigo Live, você pode ganhar dinheiro fazendo transmissões ao vivo. O sistema funciona com metas mensais de feijões que, se alcançadas, garantem o pagamento de um salário fixo. A principal forma de monetização é através dos presentes virtuais que os espectadores enviam durante suas lives. Esses presentes se convertem em feijões, que são a moeda interna do aplicativo.`
+                    `📌 *Informações sobre a Bigo Live:*\n\nNo Bigo Live, você pode ganhar dinheiro fazendo transmissões ao vivo...`
                 ]);
                 break;
 
@@ -119,10 +129,9 @@ Digite o número da opção desejada:
                 await simulateEdit(sender, [
                     "> Aguarde um momento...",
                     "> Buscando no servidor...",
-                    `🚀 *Para fazer parte da nossa agência, siga os passos abaixo:*\n\n1️⃣ Baixe o aplicativo Bigo Live\n- Android: [Play Store](https://play.google.com/store/apps/details?id=sg.bigo.live)\n- iOS: [App Store](https://apps.apple.com/br/app/bigo-live-transmiss%C3%A3o-ao-vivo/id1077137248)\n2️⃣ Crie sua conta no Bigo Live.\n3️⃣ Envie uma mensagem nesta conversa para iniciarmos seu contrato com a agência.`
+                    `🚀 *Para fazer parte da nossa agência, siga os passos abaixo:*\n1️⃣ Baixe o app Bigo Live...`
                 ]);
-
-                await sock.sendMessage(atendenteNumber, { text: `⚠️ Novo chamado: [${sender}](https://wa.me/${sender.replace("@s.whatsapp.net","")}) escolheu a opção "Fazer parte".` });
+                await sock.sendMessage(atendenteNumber, { text: `⚠️ Novo chamado: [${sender}] escolheu a opção "Fazer parte".` });
                 blockedUsers.set(sender, Date.now() + 15 * 60 * 1000);
                 userToAtendente.set(sender, atendenteNumber);
                 break;
@@ -131,43 +140,26 @@ Digite o número da opção desejada:
                 await simulateEdit(sender, [
                     "> Aguarde um momento...",
                     "> Buscando no servidor...",
-                    `💬 *Falar com atendente*\n\nUm atendente foi chamado e entrará em contato com você. Enquanto isso, você pode enviar uma mensagem diretamente: wa.me/${atendenteNumber.replace("@s.whatsapp.net","")}`
+                    `💬 *Falar com atendente*\n`
                 ]);
-
-                await sock.sendMessage(atendenteNumber, { text: `⚠️ Novo chamado: [${sender}](https://wa.me/${sender.replace("@s.whatsapp.net","")}) escolheu a opção "Falar com atendente".` });
+                await sock.sendMessage(atendenteNumber, { text: `⚠️ Novo chamado: [${sender}] escolheu a opção "Falar com atendente".` });
                 blockedUsers.set(sender, Date.now() + 15 * 60 * 1000);
                 userToAtendente.set(sender, atendenteNumber);
                 break;
 
             case "4":
-                await simulateEdit(sender, [
-                    "> Aguarde um momento...",
-                    "> Buscando no servidor...",
-                    `💎 *💰 Valores e Bônus na Bigo Live* 💎\n\nAlcance suas metas de feijões e receba os seguintes bônus (em USD):\n✨ Metas e Bônus\n➔ 2.000 Feijões: 💵 $14\n➔ 5.000 Feijões: 💵 $35\n➔ 10.000 Feijões: 💵 $74\n...`
-                ]);
-                break;
-
             case "5":
                 await simulateEdit(sender, [
                     "> Aguarde um momento...",
                     "> Buscando no servidor...",
-                    `📞 *Atendimento via chamada*\n\nUm atendente foi notificado e já irá te atender. Aguarde um momento.`
+                    "> Função específica da opção selecionada."
                 ]);
-
-                await sock.sendMessage(atendenteNumber, { text: `⚠️ Novo chamado: [${sender}](https://wa.me/${sender.replace("@s.whatsapp.net","")}) escolheu a opção "Atendimento via chamada".` });
-                blockedUsers.set(sender, Date.now() + 15 * 60 * 1000);
-                userToAtendente.set(sender, atendenteNumber);
                 break;
 
             default:
-                await simulateEdit(sender, [
-                    "> Aguarde um momento...",
-                    "> Buscando no servidor...",
-                    "> Opção não reconhecida."
-                ]);
+                await simulateEdit(sender, ["> Opção não reconhecida."]);
         }
     });
 }
 
-// chama o bot
 startBot();
